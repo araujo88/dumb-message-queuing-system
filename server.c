@@ -5,6 +5,9 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <time.h>
+#include <netinet/in.h>
+
+#define BUFFER_SIZE 1024
 
 typedef struct
 {
@@ -55,6 +58,7 @@ void enqueue(Queue *q, Message msg)
     Node *newNode = malloc(sizeof(Node));
     if (newNode == NULL)
     {
+        printf("Error allocating new node\n");
         pthread_mutex_unlock(&q->lock);
         sem_post(&q->semEmpty);
         return; // Handle allocation failure
@@ -85,6 +89,7 @@ Message dequeue(Queue *q)
     {
         pthread_mutex_unlock(&q->lock);
         sem_post(&q->semFull);
+        fprintf(stderr, "Queue unexpectedly empty.\n");
         return (Message){NULL, 0};
     }
 
@@ -121,30 +126,22 @@ void destroyQueue(Queue *q)
 void *producer(void *param)
 {
     Queue *q = (Queue *)param;
-    for (int i = 0; i < 20; i++)
-    {
-        char *data = malloc(20);
-        sprintf(data, "Message %d", i);
-        Message msg = {data, strlen(data)};
-        printf("Produced: %s\n", (char *)msg.data);
-        enqueue(q, msg);
-        sleep(randint(1, 2));
-    }
+    char *data = malloc(20);
+    sprintf(data, "Message %d", randint(0, 69));
+    Message msg = {data, strlen(data)};
+    printf("Produced: %s\n", (char *)msg.data);
+    enqueue(q, msg);
     return NULL;
 }
 
 void *consumer(void *param)
 {
     Queue *q = (Queue *)param;
-    for (int i = 0; i < 20; i++)
+    Message msg = dequeue(q);
+    if (msg.data)
     {
-        Message msg = dequeue(q);
-        if (msg.data)
-        {
-            printf("Consumed: %s\n", (char *)msg.data);
-            free(msg.data);
-        }
-        sleep(randint(2, 3));
+        printf("Consumed: %s\n", (char *)msg.data);
+        free(msg.data);
     }
     return NULL;
 }
@@ -168,18 +165,91 @@ int randint(int min_num, int max_num)
     return result;
 }
 
-int main()
+void clean_string(char *str, char c)
+{
+    char *pr = str, *pw = str;
+    while (*pr)
+    {
+        *pw = *pr++;
+        pw += (*pw != c);
+    }
+    *pw = '\0';
+}
+
+void print(const char *string)
+{
+    printf("%s\n", string);
+}
+
+int main(int argc, char **argv)
 {
     srand(time(NULL));
     Queue q;
     initQueue(&q, 10);
 
-    pthread_t t1, t2;
-    pthread_create(&t1, NULL, producer, &q);
-    pthread_create(&t2, NULL, consumer, &q);
+    int server_fd;
+    struct sockaddr_in address;
+    int addrlen = sizeof(address);
+    char buffer[1024] = {0};
 
-    pthread_join(t1, NULL);
-    pthread_join(t2, NULL);
+    // Creating socket file descriptor
+    print("Creating socket ...");
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
+    {
+        perror("socket failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // Bind the socket to the port
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(atoi(argv[1]));
+    print("Binding socket ...");
+    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0)
+    {
+        perror("bind failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // Listen for clients
+    print("Listening ...");
+    if (listen(server_fd, 8) < 0)
+    {
+        perror("listen");
+        exit(EXIT_FAILURE);
+    }
+
+    for (;;)
+    {
+        int client_fd;
+        pthread_t t;
+
+        // Accept connection from a client
+        if ((client_fd = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen)) < 0)
+        {
+            perror("accept");
+            exit(EXIT_FAILURE);
+        }
+        print("Connection accepted");
+
+        // Read message from client
+        read(client_fd, buffer, BUFFER_SIZE);
+        clean_string(buffer, '\n');
+        printf("Message received: %s\n", buffer);
+
+        if (strcmp(buffer, "produce") == 0)
+        {
+            pthread_create(&t, NULL, producer, (void *)&q);
+        }
+        else if (strcmp(buffer, "consume") == 0)
+        {
+            pthread_create(&t, NULL, consumer, (void *)&q);
+        }
+
+        close(client_fd);
+    }
+
+    close(server_fd);
 
     destroyQueue(&q);
 
