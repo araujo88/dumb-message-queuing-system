@@ -57,53 +57,66 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    for (;;)
+    while (1)
     {
         int client_fd;
-        char buffer[1024] = {0};
-
-        // Accept connection from a client
         if ((client_fd = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen)) < 0)
         {
             perror("accept");
-            exit(EXIT_FAILURE);
+            continue; // Continue accepting new connections if an accept call fails
         }
         debug(__FILE__, __LINE__, "Connection accepted");
 
-        // Read message from client
-        read(client_fd, buffer, BUFFER_SIZE);
-        clean_string(buffer, '\n');
-        debug(__FILE__, __LINE__, "Message received: %s", buffer);
+        while (1)
+        {
+            char buffer[1024] = {0};
+            ssize_t read_return = read(client_fd, buffer, sizeof(buffer));
+            if (read_return <= 0)
+            {
+                if (read_return == 0)
+                {
+                    debug(__FILE__, __LINE__, "Client disconnected");
+                }
+                else
+                {
+                    perror("read");
+                }
+                break; // Exit inner loop to close this client connection
+            }
+            clean_string(buffer, '\n');
+            debug(__FILE__, __LINE__, "Message received: %s", buffer);
 
-        if (strncmp_s(buffer, PUSH, strlen(PUSH)) == 0)
-        {
-            EnqueueRequest *req = malloc(sizeof(EnqueueRequest));
-            if (req == NULL)
+            if (strncmp_s(buffer, PUSH, strlen(PUSH)) == 0)
             {
-                fprintf(stderr, "Failed to allocate memory for EnqueueRequest.\n");
-                continue; // Skip this iteration if memory allocation fails
+                EnqueueRequest *req = malloc(sizeof(EnqueueRequest));
+                if (req == NULL)
+                {
+                    fprintf(stderr, "Failed to allocate memory for EnqueueRequest.\n");
+                    continue; // Skip this iteration if memory allocation fails
+                }
+                req->queue = &q;
+                req->msg.size = strlen(buffer) - strlen(PUSH);
+                req->msg.data = strdup(buffer + strlen(PUSH)); // Duplicate the string part of the message
+                thread_pool_add_task(producer_pool, producer, (void *)req);
+                debug(__FILE__, __LINE__, "Task to create message added to producer pool.");
             }
-            req->queue = &q;
-            req->msg.size = strlen(buffer) - strlen(PUSH);
-            req->msg.data = strdup(buffer + strlen(PUSH)); // Duplicate the string part of the message
-            thread_pool_add_task(producer_pool, producer, (void *)req);
-            debug(__FILE__, __LINE__, "Task to create message added to producer pool.");
-        }
-        else if (strncmp_s(buffer, PULL, strlen(PULL)) == 0)
-        {
-            DequeueRequest *req = malloc(sizeof(DequeueRequest));
-            if (req == NULL)
+            else if (strncmp_s(buffer, PULL, strlen(PULL)) == 0)
             {
-                fprintf(stderr, "Failed to allocate memory for DequeueRequest.\n");
-                continue; // Skip this iteration if memory allocation fails
+                DequeueRequest *req = malloc(sizeof(DequeueRequest));
+                if (req == NULL)
+                {
+                    fprintf(stderr, "Failed to allocate memory for DequeueRequest.\n");
+                    continue; // Skip this iteration if memory allocation fails
+                }
+                req->queue = &q;
+                req->client_fd = &client_fd;
+                thread_pool_add_task(consumer_pool, consumer, (void *)req);
+                debug(__FILE__, __LINE__, "Task to retrieve message added to consumer pool.");
             }
-            req->queue = &q;
-            thread_pool_add_task(consumer_pool, consumer, (void *)req);
-            debug(__FILE__, __LINE__, "Task to retrieve message added to consumer pool.");
-        }
-        else if (strncmp_s(buffer, SHOW, strlen(SHOW)) == 0)
-        {
-            showQueue(&q);
+            else if (strncmp_s(buffer, SHOW, strlen(SHOW)) == 0)
+            {
+                showQueue(&q);
+            }
         }
 
         close(client_fd);

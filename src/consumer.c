@@ -1,4 +1,5 @@
 #include "../include/consumer.h"
+#include <netinet/in.h>
 
 void *consumer(void *param)
 {
@@ -7,6 +8,7 @@ void *consumer(void *param)
     if (msg.data)
     {
         debug(__FILE__, __LINE__, "Consumed: %s", (char *)msg.data);
+        send(*req->client_fd, msg.data, strlen(msg.data), 0);
         free(msg.data);
     }
     free(req);

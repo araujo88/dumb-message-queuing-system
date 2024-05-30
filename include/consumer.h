@@ -4,6 +4,7 @@
 
 typedef struct
 {
+    int *client_fd;
     Queue *queue;
     Message msg;
 } DequeueRequest;
