@@ -32,4 +32,6 @@ typedef struct
 void initQueue(Queue *q, unsigned int buffer_size);
 void enqueue(Queue *q, Message msg);
 Message dequeue(Queue *q);
+Message peek(Queue *q);
+void showQueue(Queue *q);
 void destroyQueue(Queue *q);

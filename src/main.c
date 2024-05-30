@@ -9,32 +9,8 @@
 #include "../include/helpers.h"
 #include "../include/threadpool.h"
 #include "../include/constants.h"
-
-void *producer(void *param);
-void *consumer(void *param);
-
-void *producer(void *param)
-{
-    Queue *q = (Queue *)param;
-    char *data = malloc(20);
-    sprintf(data, "Message %d", randint(0, 69));
-    Message msg = {data, strlen(data)};
-    debug(__FILE__, __LINE__, "Produced: %s", (char *)msg.data);
-    enqueue(q, msg);
-    return NULL;
-}
-
-void *consumer(void *param)
-{
-    Queue *q = (Queue *)param;
-    Message msg = dequeue(q);
-    if (msg.data)
-    {
-        debug(__FILE__, __LINE__, "Consumed: %s", (char *)msg.data);
-        free(msg.data);
-    }
-    return NULL;
-}
+#include "../include/producer.h"
+#include "../include/consumer.h"
 
 int main(int argc, char **argv)
 {
@@ -53,7 +29,6 @@ int main(int argc, char **argv)
     int server_fd;
     struct sockaddr_in address;
     int addrlen = sizeof(address);
-    char buffer[1024] = {0};
 
     // Creating socket file descriptor
     debug(__FILE__, __LINE__, "Creating socket ...");
@@ -85,6 +60,7 @@ int main(int argc, char **argv)
     for (;;)
     {
         int client_fd;
+        char buffer[1024] = {0};
 
         // Accept connection from a client
         if ((client_fd = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen)) < 0)
@@ -99,15 +75,35 @@ int main(int argc, char **argv)
         clean_string(buffer, '\n');
         debug(__FILE__, __LINE__, "Message received: %s", buffer);
 
-        if (strncmp_s(buffer, "queue") == 0)
+        if (strncmp_s(buffer, PUSH, strlen(PUSH)) == 0)
         {
-            thread_pool_add_task(producer_pool, producer, (void *)&q);
+            EnqueueRequest *req = malloc(sizeof(EnqueueRequest));
+            if (req == NULL)
+            {
+                fprintf(stderr, "Failed to allocate memory for EnqueueRequest.\n");
+                continue; // Skip this iteration if memory allocation fails
+            }
+            req->queue = &q;
+            req->msg.size = strlen(buffer) - strlen(PUSH);
+            req->msg.data = strdup(buffer + strlen(PUSH)); // Duplicate the string part of the message
+            thread_pool_add_task(producer_pool, producer, (void *)req);
             debug(__FILE__, __LINE__, "Task to create message added to producer pool.");
         }
-        else if (strncmp_s(buffer, "dequeue") == 0)
+        else if (strncmp_s(buffer, PULL, strlen(PULL)) == 0)
         {
-            thread_pool_add_task(consumer_pool, consumer, (void *)&q);
+            DequeueRequest *req = malloc(sizeof(DequeueRequest));
+            if (req == NULL)
+            {
+                fprintf(stderr, "Failed to allocate memory for DequeueRequest.\n");
+                continue; // Skip this iteration if memory allocation fails
+            }
+            req->queue = &q;
+            thread_pool_add_task(consumer_pool, consumer, (void *)req);
             debug(__FILE__, __LINE__, "Task to retrieve message added to consumer pool.");
+        }
+        else if (strncmp_s(buffer, SHOW, strlen(SHOW)) == 0)
+        {
+            showQueue(&q);
         }
 
         close(client_fd);

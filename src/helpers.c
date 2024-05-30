@@ -38,7 +38,7 @@ void debug(const char *file, int line, const char *format, ...)
     va_end(args);
 }
 
-int strncmp_s(const char *s1, const char *s2)
+int strncmp_s(const char *s1, const char *s2, size_t n)
 {
     if (s1 == NULL || s2 == NULL)
     {
@@ -54,9 +54,5 @@ int strncmp_s(const char *s1, const char *s2)
         return -1;
     }
 
-    size_t len1 = strlen(s1);
-    size_t len2 = strlen(s2);
-
-    // Use the minimum of len1 and len2 to avoid reading beyond the end of the shorter string
-    return strncmp(s1, s2, len1 < len2 ? len1 : len2);
+    return strncmp(s1, s2, n); // Compare up to n characters only
 }

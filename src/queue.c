@@ -69,6 +69,52 @@ Message dequeue(Queue *q)
     return msg;
 }
 
+Message peek(Queue *q)
+{
+    pthread_mutex_lock(&q->lock);
+
+    if (q->front == NULL)
+    {
+        pthread_mutex_unlock(&q->lock);
+        fprintf(stderr, "Queue is empty.\n");
+        return (Message){NULL, 0}; // Return an empty message to indicate an empty queue
+    }
+
+    Message msg = q->front->message;
+    pthread_mutex_unlock(&q->lock);
+
+    return msg; // Return a copy of the message at the front of the queue
+}
+
+void showQueue(Queue *q)
+{
+    pthread_mutex_lock(&q->lock); // Lock the queue to ensure thread safety
+
+    if (q->front == NULL)
+    {
+        printf("The queue is empty.\n");
+    }
+    else
+    {
+        Node *current = q->front;
+        printf("Queue contents:\n");
+        while (current != NULL)
+        {
+            if (current->message.data != NULL)
+            {
+                printf("%s\n", (char *)current->message.data); // Assuming message data is a null-terminated string
+            }
+            else
+            {
+                printf("NULL\n"); // Handle NULL data appropriately
+            }
+            current = current->next;
+        }
+    }
+
+    pthread_mutex_unlock(&q->lock); // Unlock the queue after traversing
+}
+
 void destroyQueue(Queue *q)
 {
     while (q->front != NULL)
