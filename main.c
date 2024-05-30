@@ -52,7 +52,10 @@ void enqueue(Queue *q, Message msg)
     pthread_mutex_lock(&q->lock);
     Node *newNode = malloc(sizeof(Node));
     if (newNode == NULL)
+    {
+        pthread_mutex_unlock(&q->lock);
         return; // Handle allocation failure
+    }
 
     newNode->message = msg;
     newNode->next = NULL;
@@ -75,6 +78,7 @@ Message dequeue(Queue *q)
     pthread_mutex_lock(&q->lock);
     if (q->front == NULL)
     {
+        pthread_mutex_unlock(&q->lock);
         return (Message){NULL, 0}; // Return an empty message if queue is empty
     }
 
@@ -127,7 +131,7 @@ void *producer(void *param)
 void *consumer(void *param)
 {
     Queue *q = (Queue *)param;
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < 20; i++)
     {
         sem_wait(&q->semFull);
         Message msg = dequeue(q);
