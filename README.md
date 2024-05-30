@@ -86,24 +86,23 @@ To run the server, execute the compiled binary:
 
 ### Interacting with the Server
 
-You can interact with the server using `nc` (netcat). Below are some example commands:
+Compile the client:
 
-- **Show the queue contents**:
+```bash
+gcc -Wall -Wextra -Wpedantic client.c -o client
+```
 
-  ```bash
-  echo -e 'show' | nc 127.0.0.1 <port_number>
-  ```
+Run specifying the IP address of the server and port number:
 
-- **Push a message into the queue**:
+```bash
+./client 127.0.0.1 8888
+```
 
-  ```bash
-  echo -e 'push 42' | nc 127.0.0.1 <port_number>
-  ```
+In the client shell, there are only 3 commands available:
 
-- **Pull a message from the queue**:
-  ```bash
-  echo -e 'pull' | nc 127.0.0.1 <port_number>
-  ```
+- `show`: display the contents of the queue
+- `push <data>`: push arbitrary data to the queue
+- `pull`: pull data from the queue
 
 ## License
 
