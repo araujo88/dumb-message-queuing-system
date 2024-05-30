@@ -49,11 +49,14 @@ void initQueue(Queue *q, unsigned int buffer_size)
 
 void enqueue(Queue *q, Message msg)
 {
+    sem_wait(&q->semEmpty);
     pthread_mutex_lock(&q->lock);
+
     Node *newNode = malloc(sizeof(Node));
     if (newNode == NULL)
     {
         pthread_mutex_unlock(&q->lock);
+        sem_post(&q->semEmpty);
         return; // Handle allocation failure
     }
 
@@ -71,15 +74,18 @@ void enqueue(Queue *q, Message msg)
     }
     q->count++;
     pthread_mutex_unlock(&q->lock);
+    sem_post(&q->semFull);
 }
 
 Message dequeue(Queue *q)
 {
+    sem_wait(&q->semFull);
     pthread_mutex_lock(&q->lock);
     if (q->front == NULL)
     {
         pthread_mutex_unlock(&q->lock);
-        return (Message){NULL, 0}; // Return an empty message if queue is empty
+        sem_post(&q->semFull);
+        return (Message){NULL, 0};
     }
 
     Node *temp = q->front;
@@ -94,6 +100,7 @@ Message dequeue(Queue *q)
     free(temp);
     q->count--;
     pthread_mutex_unlock(&q->lock);
+    sem_post(&q->semEmpty);
     return msg;
 }
 
@@ -116,14 +123,12 @@ void *producer(void *param)
     Queue *q = (Queue *)param;
     for (int i = 0; i < 20; i++)
     {
-        sem_wait(&q->semEmpty);
         char *data = malloc(20);
         sprintf(data, "Message %d", i);
         Message msg = {data, strlen(data)};
         printf("Produced: %s\n", (char *)msg.data);
         enqueue(q, msg);
         sleep(randint(1, 2));
-        sem_post(&q->semFull);
     }
     return NULL;
 }
@@ -133,15 +138,13 @@ void *consumer(void *param)
     Queue *q = (Queue *)param;
     for (int i = 0; i < 20; i++)
     {
-        sem_wait(&q->semFull);
         Message msg = dequeue(q);
         if (msg.data)
         {
             printf("Consumed: %s\n", (char *)msg.data);
             free(msg.data);
         }
-        sleep(randint(5, 10));
-        sem_post(&q->semEmpty);
+        sleep(randint(2, 3));
     }
     return NULL;
 }
@@ -161,7 +164,6 @@ int randint(int min_num, int max_num)
         hi_num = min_num;
     }
 
-    srand(time(NULL));
     result = (rand() % (hi_num - low_num)) + low_num;
     return result;
 }
