@@ -8,8 +8,7 @@
 #include "../include/queue.h"
 #include "../include/helpers.h"
 #include "../include/threadpool.h"
-
-#define BUFFER_SIZE 1024
+#include "../include/constants.h"
 
 void *producer(void *param);
 void *consumer(void *param);
@@ -100,11 +99,11 @@ int main(int argc, char **argv)
         clean_string(buffer, '\n');
         printf("Message received: %s\n", buffer);
 
-        if (strcmp(buffer, "produce") == 0)
+        if (strncmp_s(buffer, "produce") == 0)
         {
             thread_pool_add_task(producer_pool, producer, (void *)&q);
         }
-        else if (strcmp(buffer, "consume") == 0)
+        else if (strncmp_s(buffer, "consume") == 0)
         {
             thread_pool_add_task(consumer_pool, consumer, (void *)&q);
         }
