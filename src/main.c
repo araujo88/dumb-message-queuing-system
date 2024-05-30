@@ -19,7 +19,7 @@ void *producer(void *param)
     char *data = malloc(20);
     sprintf(data, "Message %d", randint(0, 69));
     Message msg = {data, strlen(data)};
-    printf("Produced: %s\n", (char *)msg.data);
+    debug(__FILE__, __LINE__, "Produced: %s", (char *)msg.data);
     enqueue(q, msg);
     return NULL;
 }
@@ -30,7 +30,7 @@ void *consumer(void *param)
     Message msg = dequeue(q);
     if (msg.data)
     {
-        printf("Consumed: %s\n", (char *)msg.data);
+        debug(__FILE__, __LINE__, "Consumed: %s", (char *)msg.data);
         free(msg.data);
     }
     return NULL;
@@ -56,7 +56,7 @@ int main(int argc, char **argv)
     char buffer[1024] = {0};
 
     // Creating socket file descriptor
-    debug("Creating socket ...");
+    debug(__FILE__, __LINE__, "Creating socket ...");
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
     {
         perror("socket failed");
@@ -67,7 +67,7 @@ int main(int argc, char **argv)
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons(atoi(argv[1]));
-    debug("Binding socket ...");
+    debug(__FILE__, __LINE__, "Binding socket ...");
     if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0)
     {
         perror("bind failed");
@@ -75,7 +75,7 @@ int main(int argc, char **argv)
     }
 
     // Listen for clients
-    debug("Listening ...");
+    debug(__FILE__, __LINE__, "Listening ...");
     if (listen(server_fd, 8) < 0)
     {
         perror("listen");
@@ -92,20 +92,22 @@ int main(int argc, char **argv)
             perror("accept");
             exit(EXIT_FAILURE);
         }
-        debug("Connection accepted");
+        debug(__FILE__, __LINE__, "Connection accepted");
 
         // Read message from client
         read(client_fd, buffer, BUFFER_SIZE);
         clean_string(buffer, '\n');
-        printf("Message received: %s\n", buffer);
+        debug(__FILE__, __LINE__, "Message received: %s", buffer);
 
-        if (strncmp_s(buffer, "produce") == 0)
+        if (strncmp_s(buffer, "queue") == 0)
         {
             thread_pool_add_task(producer_pool, producer, (void *)&q);
+            debug(__FILE__, __LINE__, "Task to create message added to producer pool.");
         }
-        else if (strncmp_s(buffer, "consume") == 0)
+        else if (strncmp_s(buffer, "dequeue") == 0)
         {
             thread_pool_add_task(consumer_pool, consumer, (void *)&q);
+            debug(__FILE__, __LINE__, "Task to retrieve message added to consumer pool.");
         }
 
         close(client_fd);

@@ -4,6 +4,7 @@
 #include <stdarg.h>
 #include <errno.h>
 #include <string.h>
+#include <time.h>
 
 int randint(int min_num, int max_num)
 {
@@ -23,8 +24,13 @@ void clean_string(char *str, char c)
     *pw = '\0';
 }
 
-void debug(const char *format, ...)
+void debug(const char *file, int line, const char *format, ...)
 {
+    time_t now = time(NULL);
+    char formatted_time[20];
+    strftime(formatted_time, sizeof(formatted_time), "%Y-%m-%d %H:%M:%S", localtime(&now));
+    printf("[%s] [%s:%d] ", formatted_time, file, line);
+
     va_list args;
     va_start(args, format);
     vprintf(format, args);
