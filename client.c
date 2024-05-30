@@ -14,7 +14,7 @@
 
 #define BUFFER_SIZE 65536
 
-int client_socket; // Client socket global variable for signal handler
+int server_socket; // server socket global variable for signal handler
 
 void check_socket(int socket)
 {
@@ -36,9 +36,8 @@ void check_connection(int socket, struct sockaddr_in address)
     puts("Connected successfully!");
 }
 
-void send_message(int socket)
+void send_message(int socket, char *message)
 {
-    char message[BUFFER_SIZE] = {0};
     printf("dmqs$ ");
     fgets(message, BUFFER_SIZE, stdin);
     send(socket, message, strlen(message), 0); // sends message
@@ -92,7 +91,7 @@ void recv_message(int socket_fd)
 void handle_signal(int sig)
 {
     printf("\nCaught interrupt signal %d\n", sig);
-    if (close(client_socket) == 0)
+    if (close(server_socket) == 0)
     {
         puts("Socket closed successfully!");
         exit(EXIT_SUCCESS);
@@ -117,22 +116,27 @@ int main(int argc, char *argv[])
 
     printf("IP address: %s - port: %d\n", ip, port);
 
-    client_socket = socket(AF_INET, SOCK_STREAM, 0);
-    check_socket(client_socket);
+    server_socket = socket(AF_INET, SOCK_STREAM, 0);
+    check_socket(server_socket);
 
     struct sockaddr_in server_address;
     server_address.sin_family = AF_INET;
     server_address.sin_port = htons(port);
     server_address.sin_addr.s_addr = inet_addr(ip);
 
-    check_connection(client_socket, server_address);
+    check_connection(server_socket, server_address);
 
     signal(SIGINT, handle_signal);
-
     while (true)
     {
-        send_message(client_socket);
-        recv_message(client_socket);
+        char message[BUFFER_SIZE] = {0};
+        memset(message, 0, sizeof(message));
+
+        send_message(server_socket, message);
+
+        printf("message: %s", message);
+        if (strncmp(message, "pull", 4) == 0)
+            recv_message(server_socket);
     }
 
     return 0;

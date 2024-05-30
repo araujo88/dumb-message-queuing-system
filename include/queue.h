@@ -23,7 +23,7 @@ typedef struct
     Node *front; // Pointer to the front of the queue
     Node *rear;  // Pointer to the rear of the queue
     int count;   // Number of items in the queue
-    unsigned int buffer_size;
+    unsigned int capacity;
     pthread_mutex_t lock;
     sem_t semEmpty;
     sem_t semFull;

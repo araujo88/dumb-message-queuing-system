@@ -1,12 +1,12 @@
 #include "../include/queue.h"
 
-void initQueue(Queue *q, unsigned int buffer_size)
+void initQueue(Queue *q, unsigned int capacity)
 {
     q->front = q->rear = NULL;
     q->count = 0;
-    q->buffer_size = buffer_size;
+    q->capacity = capacity;
     pthread_mutex_init(&q->lock, NULL);
-    sem_init(&q->semEmpty, 0, q->buffer_size);
+    sem_init(&q->semEmpty, 0, q->capacity);
     sem_init(&q->semFull, 0, 0);
 }
 
@@ -48,7 +48,7 @@ Message dequeue(Queue *q)
     if (q->front == NULL)
     {
         pthread_mutex_unlock(&q->lock);
-        sem_post(&q->semFull);
+        sem_post(&q->semEmpty);
         fprintf(stderr, "Queue unexpectedly empty.\n");
         return (Message){NULL, 0};
     }

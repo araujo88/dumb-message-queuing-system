@@ -4,8 +4,13 @@
 void *consumer(void *param)
 {
     DequeueRequest *req = (DequeueRequest *)param;
+    if (req->queue->front == NULL)
+    {
+        send(*req->client_fd, NIL, strlen(NIL), 0);
+        return NULL;
+    }
     Message msg = dequeue(req->queue);
-    if (msg.data)
+    if (msg.size != 0)
     {
         debug(__FILE__, __LINE__, "Consumed: %s", (char *)msg.data);
         send(*req->client_fd, msg.data, strlen(msg.data), 0);

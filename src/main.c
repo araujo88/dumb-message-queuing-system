@@ -22,7 +22,7 @@ int main(int argc, char **argv)
 
     srand(time(NULL));
     Queue q;
-    initQueue(&q, 10);
+    initQueue(&q, MAX_CAPACITY);
     thread_pool_t *producer_pool = thread_pool_create(4, 4); // 4 threads, 4 queue size.
     thread_pool_t *consumer_pool = thread_pool_create(4, 4); // 4 threads, 4 queue size.
 
